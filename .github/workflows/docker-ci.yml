@@ -1,0 +1,36 @@
+name: Docker CI
+
+on:
+  push:
+    branches: [main, master]
+
+jobs:
+  build-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker Compose
+        run: docker compose build
+
+      - name: Verify containers start
+        run: |
+          docker compose up -d
+          echo "Waiting for services..."
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:5000/tasks > /dev/null 2>&1; then
+              echo "Python gateway responded"
+              break
+            fi
+            if [ $i -eq 60 ]; then
+              echo "Timeout"
+              docker compose logs
+              exit 1
+            fi
+            sleep 3
+          done
+          docker compose down
